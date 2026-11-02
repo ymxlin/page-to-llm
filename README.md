@@ -25,3 +25,7 @@ and conversations are cleared when you close the tab or the browser. There is no
 ## Third-party code
 
 `vendor/` contains [marked](https://github.com/markedjs/marked) and [DOMPurify](https://github.com/cure53/DOMPurify), under their own licenses.
+
+## License
+
+[MIT](LICENSE), except the third-party code in `vendor/`.
