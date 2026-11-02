@@ -1,0 +1,56 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Page to LLM – Settings</title>
+  <style>
+    body { font: 14px system-ui, sans-serif; max-width: 560px; margin: 24px auto; padding: 0 16px; }
+    label { display: block; margin-top: 14px; font-weight: 600; }
+    input, textarea, select { width: 100%; box-sizing: border-box; padding: 6px; margin-top: 4px; font: inherit; }
+    textarea { min-height: 90px; }
+    small { color: #666; font-weight: normal; }
+    button { margin-top: 18px; padding: 8px 16px; }
+    #status { margin-left: 10px; }
+  </style>
+</head>
+<body>
+  <h2>Page to LLM – Settings</h2>
+
+  <label>Base URL <small>(e.g. https://api.openai.com/v1 or http://localhost:8080/v1)</small>
+    <input id="baseUrl" placeholder="http://localhost:8080/v1">
+  </label>
+
+  <label>API key <small>(optional for local servers; stored locally, not synced)</small>
+    <input id="apiKey" type="password">
+  </label>
+
+  <label>Model
+    <input id="model" placeholder="gpt-4o-mini">
+  </label>
+
+  <label>System prompt
+    <textarea id="systemPrompt"></textarea>
+  </label>
+
+  <label>Default instruction <small>(used when the popup's prompt box is empty)</small>
+    <textarea id="defaultInstruction"></textarea>
+  </label>
+
+  <label>Default content to send <small>(can be changed per request in the popup; screenshots need a vision-capable model)</small>
+    <select id="content">
+      <option value="text">Text only</option>
+      <option value="both">Text + screenshot</option>
+      <option value="image">Screenshot only</option>
+    </select>
+  </label>
+
+  <label>Max page characters sent
+    <input id="maxChars" type="number" min="1000" step="1000">
+  </label>
+
+  <button id="save">Save</button><span id="status"></span>
+
+  <script src="settings.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

@@ -1,0 +1,119 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    * { box-sizing: border-box; }
+    body { font: 13px/1.45 system-ui, sans-serif; width: 540px; height: 560px; margin: 0; color: #222; }
+    textarea { width: 100%; font: inherit; padding: 6px 8px; border: 1px solid #ccc; border-radius: 6px; resize: none; }
+    button { padding: 6px 14px; font: inherit; cursor: pointer; }
+    a { color: #1a73e8; }
+    .row { display: flex; gap: 8px; align-items: center; }
+    .spacer { flex: 1; }
+    .error { color: #b00020; white-space: pre-wrap; }
+    [hidden] { display: none !important; }
+
+    /* Start view */
+    #start { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+    #start textarea { min-height: 70px; }
+    #start label { color: #444; }
+
+    /* Conversation view: source on top, scrollable chat, composer at the bottom */
+    #conv { height: 100%; display: flex; flex-direction: column; }
+    .source { padding: 10px 12px; border-bottom: 1px solid #ddd; background: #f7f8fa; flex: none; }
+    .source .title { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis;
+                     white-space: nowrap; color: inherit; text-decoration: none; }
+    .source .title:hover { text-decoration: underline; }
+    .badge { flex: none; font-size: 11px; padding: 1px 6px; border-radius: 10px; background: #e3e8f0; color: #345; }
+    .source .meta { color: #666; font-size: 12px; margin-top: 4px; }
+    .source .body { display: flex; gap: 8px; margin-top: 6px; }
+    .source details { flex: 1; min-width: 0; }
+    .source summary { cursor: pointer; color: #555; font-size: 12px; }
+    .source .copy { margin-left: 6px; padding: 0 6px; font-size: 11px; }
+    .source pre { margin: 4px 0 0; max-height: 110px; overflow: auto; white-space: pre-wrap; font: 11px/1.4 ui-monospace, monospace;
+                  background: #fff; border: 1px solid #e2e2e2; border-radius: 4px; padding: 6px; }
+    .source img { flex: none; max-width: 120px; max-height: 70px; border: 1px solid #ddd; border-radius: 4px; cursor: zoom-in; }
+    .source img.big { max-width: 100%; max-height: 260px; cursor: zoom-out; }
+    .source .body:has(img.big) { flex-direction: column-reverse; }
+    .icon { border: 0; background: none; padding: 2px 6px; color: #555; }
+
+    #chat { flex: 1; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+    .msg { max-width: 88%; padding: 7px 10px; border-radius: 10px; white-space: pre-wrap; word-wrap: break-word; }
+    .msg.user { align-self: flex-end; background: #1a73e8; color: #fff; border-bottom-right-radius: 3px; }
+    .msg.assistant { align-self: flex-start; background: #f1f3f4; border-bottom-left-radius: 3px; }
+    .msg.assistant.error { background: #fdecea; }
+    .msg .note { display: block; font-size: 11px; color: #888; margin-top: 2px; }
+    /* While the model is still answering: . → .. → ... (phase comes from the clock, so redraws don't restart it) */
+    .msg.streaming::after { content: "."; color: #888; animation: dots 1.2s infinite; animation-delay: var(--phase); }
+    @keyframes dots { 0% { content: "."; } 33% { content: ".."; } 66% { content: "..."; } }
+
+    /* Markdown in assistant replies */
+    .msg.md { white-space: normal; }
+    .md > :first-child { margin-top: 0; }
+    .md > :last-child { margin-bottom: 0; }
+    .md p, .md ul, .md ol, .md pre, .md blockquote, .md table { margin: 0 0 8px; }
+    .md h1, .md h2, .md h3, .md h4 { margin: 10px 0 6px; line-height: 1.3; }
+    .md h1 { font-size: 16px; } .md h2 { font-size: 15px; } .md h3, .md h4 { font-size: 14px; }
+    .md ul, .md ol { padding-left: 20px; }
+    .md li + li { margin-top: 2px; }
+    .md code { font: 12px ui-monospace, monospace; background: rgba(0,0,0,.07); padding: 1px 4px; border-radius: 3px; }
+    .md pre { background: #272822; color: #f8f8f2; padding: 8px 10px; border-radius: 6px; overflow-x: auto; }
+    .md pre code { background: none; padding: 0; color: inherit; }
+    .md blockquote { border-left: 3px solid #ccc; padding-left: 8px; color: #555; }
+    .md table { border-collapse: collapse; display: block; overflow-x: auto; }
+    .md th, .md td { border: 1px solid #ddd; padding: 3px 6px; text-align: left; }
+    .md th { background: rgba(0,0,0,.04); }
+    .md hr { border: 0; border-top: 1px solid #ddd; margin: 8px 0; }
+    .md img { max-width: 100%; }
+
+    .composer { flex: none; display: flex; gap: 8px; padding: 8px 12px; border-top: 1px solid #ddd; }
+    .composer textarea { height: 38px; }
+  </style>
+</head>
+<body>
+  <section id="start">
+    <textarea id="prompt" placeholder="Instruction (leave blank for the default from settings)"></textarea>
+    <div class="row">
+      <select id="content" title="Text is your selection if you've highlighted something, otherwise the whole page. Screenshots need a vision-capable model.">
+        <option value="text">Text only</option>
+        <option value="both">Text + screenshot</option>
+        <option value="image">Screenshot only</option>
+      </select>
+      <span class="spacer"></span>
+      <a href="#" class="openOptions">Settings</a>
+    </div>
+    <div class="row">
+      <span class="spacer"></span>
+      <button id="pick" title="Point at a part of the page, like DevTools' inspector">Pick element</button>
+      <button id="send">Send page</button>
+    </div>
+    <div id="startError" class="error"></div>
+  </section>
+
+  <section id="conv" hidden>
+    <div class="source">
+      <div class="row">
+        <span class="badge" id="srcBadge"></span>
+        <a class="title" id="srcTitle" target="_blank"></a>
+        <button class="icon openOptions" title="Settings">&#9881;</button>
+        <button id="newChat" title="Start over">New chat</button>
+      </div>
+      <div class="meta" id="srcMeta"></div>
+      <div class="body">
+        <details><summary>Text sent to the model <button type="button" class="copy" id="copyText">Copy</button></summary><pre id="srcText"></pre></details>
+        <img id="srcImg" alt="Screenshot sent to the model" hidden>
+      </div>
+    </div>
+    <div id="chat"></div>
+    <form class="composer" id="composer">
+      <textarea id="followup" placeholder="Ask a follow-up… (Enter to send, Shift+Enter for new line)"></textarea>
+      <button id="ask">Send</button>
+    </form>
+  </section>
+
+  <script src="vendor/marked.min.js"></script>
+  <script src="vendor/purify.min.js"></script>
+  <script src="settings.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
