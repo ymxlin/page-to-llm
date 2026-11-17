@@ -163,6 +163,7 @@ function render(conv, image) {
     else div.textContent = t.error || t.text;
     if (t.streaming) div.style.setProperty("--phase", `-${Date.now() % 1200}ms`);
     if (t.stopped) div.append(Object.assign(document.createElement("span"), { className: "note", textContent: "(stopped)" }));
+    if (t.cutOff) div.append(Object.assign(document.createElement("span"), { className: "note", textContent: "(cut off: the model reached its token limit)" }));
     return div;
   }));
   if (atBottom) chat.scrollTop = chat.scrollHeight;

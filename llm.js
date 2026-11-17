@@ -20,6 +20,7 @@ function buildMessages(s, source, turns, imageDataUrl) {
   return messages;
 }
 
+// Streams the reply into onChunk and resolves to the finish reason ("stop", "length", …).
 async function streamChat(s, messages, onChunk, signal) {
   const headers = { "Content-Type": "application/json" };
   if (s.apiKey) headers.Authorization = `Bearer ${s.apiKey}`;
@@ -36,11 +37,12 @@ async function streamChat(s, messages, onChunk, signal) {
   if (!(res.headers.get("content-type") || "").includes("text/event-stream")) {
     const data = await res.json();
     onChunk(data.choices?.[0]?.message?.content ?? JSON.stringify(data, null, 2));
-    return;
+    return data.choices?.[0]?.finish_reason ?? null;
   }
 
   const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
   let buffer = "";
+  let finish = null;
   for (;;) {
     const { value, done } = await reader.read();
     if (done) break;
@@ -50,8 +52,10 @@ async function streamChat(s, messages, onChunk, signal) {
     for (const line of lines) {
       const payload = line.replace(/^data:\s*/, "").trim();
       if (!line.startsWith("data:") || !payload || payload === "[DONE]") continue;
-      const delta = JSON.parse(payload).choices?.[0]?.delta?.content;
-      if (delta) onChunk(delta);
+      const choice = JSON.parse(payload).choices?.[0];
+      finish = choice?.finish_reason || finish;
+      if (choice?.delta?.content) onChunk(choice.delta.content);
     }
   }
+  return finish;
 }

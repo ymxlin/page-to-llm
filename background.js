@@ -2,7 +2,7 @@ importScripts("settings.js", "llm.js");
 
 // One conversation per tab, kept in chrome.storage.session so the popup can be
 // closed and reopened without losing it:
-//   conv:<tabId> = { source: {mode, tag?, title, url, text, fullLength, hasImage}, turns: [{role, text, streaming?, error?, stopped?}] }
+//   conv:<tabId> = { source: {mode, tag?, title, url, text, fullLength, hasImage}, turns: [{role, text, streaming?, error?, stopped?, cutOff?}] }
 //   img:<tabId>  = screenshot data URL (kept apart so streaming saves stay small)
 // The popup renders from storage; this worker does all model calls.
 const convKey = (tabId) => `conv:${tabId}`;
@@ -83,13 +83,23 @@ async function reply(tabId, conv, s, image) {
   let lastSave = 0;
   await save();
   try {
-    await streamChat(s, messages, (chunk) => {
+    const finish = await streamChat(s, messages, (chunk) => {
       turn.text += chunk;
       if (Date.now() - lastSave > 150) {
         lastSave = Date.now();
         save();
       }
     }, abort.signal);
+    // A "thinking" model can spend its whole token budget on reasoning the endpoint doesn't
+    // send, which used to leave a blank bubble. Say what happened instead.
+    if (!turn.text.trim()) {
+      turn.error = (finish === "length"
+        ? "The model reached its token limit before writing an answer."
+        : "The model sent back an empty reply.") +
+        " If the page is long, it may not fit the model's context window: lower “Max page characters” in Settings.";
+    } else if (finish === "length") {
+      turn.cutOff = true;
+    }
   } catch (err) {
     if (abort.signal.aborted) turn.stopped = true;
     else turn.error = err.message || String(err);
